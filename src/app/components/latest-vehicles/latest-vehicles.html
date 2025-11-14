@@ -1,0 +1,219 @@
+<div class="min-h-screen bg-slate-950 text-slate-100 px-6 py-8">
+  <div class="flex items-center justify-between mb-4 gap-4">
+    <h1 class="text-2xl font-semibold">Latest Vehicle Positions</h1>
+
+    <div class="text-right text-xs text-slate-400">
+      <div>Auto-refresh: every 30 seconds</div>
+      <div *ngIf="lastUpdated">
+        Last updated:
+        <span class="font-mono text-slate-300">
+          {{ lastUpdated | date: 'shortTime' }}
+        </span>
+      </div>
+      <div *ngIf="!lastUpdated">
+        Waiting for first load...
+      </div>
+    </div>
+  </div>
+
+  <!-- Top row: per-job breakdown + map -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+    <!-- Per-job breakdown -->
+    <div class="lg:col-span-1 space-y-3">
+      <h2 class="text-lg font-semibold mb-1">Per-Job Breakdown</h2>
+
+      <div *ngIf="jobsSummary.length === 0" class="text-slate-400 text-sm">
+        No vehicles yet.
+      </div>
+
+      <!-- New Scrolling Wrapper -->
+       <div class="max-h-[47rem] overflow-y-auto space-y-3 pr-1">
+        <div
+          *ngFor="let job of jobsSummary"
+          class="border border-slate-800 rounded-lg px-3 py-2 bg-slate-900/40 max-h-72 overflow-y-auto"
+          [attr.title]="job.vehicle_Names.join('\n')"
+        >
+            <div class="flex items-center justify-between">
+              <div>
+                  <div class="font-medium text-sm">
+                    {{ job.job_code }}
+                  </div>
+                  <div class="text-xs text-slate-400">
+                    {{ job.job_name }}
+                  </div>
+                  </div>
+                  <div class="text-sm font-semibold">
+                    {{ job.vehicle_count }} vehicle{{ job.vehicle_count === 1 ? '' : 's' }}
+                  </div>
+                
+            </div>
+          </div>
+        </div>
+      </div>
+
+    <!-- Map -->
+    <div class="lg:col-span-2">
+      <h2 class="text-lg font-semibold mb-2">Map View</h2>
+      <div
+        id="vehicle-map"
+        class="w-full min-h-[500px] h-[60vh] rounded-lg border border-slate-800 overflow-hidden"
+      ></div>
+    </div>
+  </div>
+
+  <div *ngIf="loading" class="text-slate-400 mb-4">
+    Loading latest positions...
+  </div>
+
+  <div *ngIf="error" class="text-red-400 mb-4">
+    {{ error }}
+  </div>
+
+  <div *ngIf="!loading && vehicles.length === 0" class="text-slate-400">
+    No vehicle positions found.
+  </div>
+
+    <!-- Add breaks for spacing -->
+  <br><br>
+    <!--  -->
+
+  <!-- Filters for bottom table -->
+  <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
+    <!-- Left: job filter -->
+    <div class="flex items-center gap-2">
+      <label class="text-xs uppercase tracking-wide text-slate-400">
+        Job
+      </label>
+      <select
+        [(ngModel)]="filterJobID"
+        class="bg-slate-900/60 border border-slate-700 text-sm rounded-md px-2 py-1"
+      >
+        <option value="ALL">All jobs</option>
+        <option
+          *ngFor="let job of jobsSummary"
+          [value]="job.job_id || 'UNASSIGNED'"
+        >
+          {{ job.job_code || 'Unassigned' }}
+        </option>
+      </select>
+    </div>
+
+    <!-- Right: search box -->
+    <div class="w-full sm:w-80">
+      <input
+        [(ngModel)]="filterSearch"
+        type="text"
+        placeholder="Search vehicles or jobs..."
+        class="w-full bg-slate-900/60 border border-slate-700 text-sm rounded-md px-3 py-1 focus:outline-none focus:ring focus:ring-sky-500/40"
+      />
+    </div>
+  </div>
+
+  <div *ngIf="vehicles.length > 0" class="overflow-x-auto border border-slate-800 rounded-lg">
+    <table class="min-w-full text-sm">
+      <thead class="bg-slate-900 border-b border-slate-800">
+        <tr>
+          <th
+            class="px-4 py-2 text-left cursor-pointer select-none"
+            (click)="onSort('vehicle_name')"
+          >
+            Vehicle
+            <span *ngIf="sortColumn === 'vehicle_name'">
+              {{ sortDirection === 'asc' ? '▲' : '▼' }}
+            </span>
+          </th>
+          
+          <th
+            class="px-4 py-2 text-left cursor-pointer select-none"
+            (click)="onSort('job_code')"
+          >
+            Job
+            <span *ngIf="sortColumn === 'job_code'">
+              {{ sortDirection === 'asc' ? '▲' : '▼' }}
+            </span>
+          </th>
+          
+          <th
+            class="px-4 py-2 text-left cursor-pointer select-none"
+            (click)="onSort('latitude')"
+          >
+            Latitude
+            <span *ngIf="sortColumn === 'latitude'">
+              {{ sortDirection === 'asc' ? '▲' : '▼' }}
+            </span>
+          </th>
+          
+          <th
+            class="px-4 py-2 text-left cursor-pointer select-none"
+            (click)="onSort('longitude')"
+          >
+            Longitude
+            <span *ngIf="sortColumn === 'longitude'">
+              {{ sortDirection === 'asc' ? '▲' : '▼' }}
+            </span>
+          </th>
+
+          <th class="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wide">
+            Distance to Job
+          </th>
+
+          <th
+            class="px-4 py-2 text-left cursor-pointer select-none"
+            (click)="onSort('timestamp_utc')"
+          >
+            Last Updated
+            <span *ngIf="sortColumn === 'timestamp_utc'">
+              {{ sortDirection === 'asc' ? '▲' : '▼' }}
+            </span>
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr
+          *ngFor="let v of filteredVehicles"
+          class="border-b border-slate-800 hover:bg-slate-900 transition"
+        >
+          <td class="px-4 py-2">
+            <div class="font-medium">{{ v.vehicle_name }}</div>
+            <!-- <div class="text-xs text-slate-400">{{ v.vehicle_id }}</div> -->
+          </td>
+
+          <!-- <td class="px-4 py-2">
+            {{ v.vehicle_type || '—' }}
+          </td> -->
+
+          <td class="px-4 py-2">
+            <div *ngIf="v.job_code; else noJob">
+              <div class="font-medium">{{ v.job_code }}</div>
+              <div class="text-xs text-slate-400">{{ v.job_name }}</div>
+            </div>
+            <ng-template #noJob>
+              <span class="text-slate-600 text-xs">No job</span>
+            </ng-template>
+          </td>
+
+          <td class="px-4 py-2">
+            {{ v.latitude | number: '1.5-5' }}
+          </td>
+
+          <td class="px-4 py-2">
+            {{ v.longitude | number: '1.5-5' }}
+          </td>
+
+          <td class="px-3 py-2 text-xs text-right">
+            <ng-container *ngIf="v.distance_m != null; else noDist">
+              <!-- show miles with 1 decimal -->
+              {{ (v.distance_m / 1609.34) | number:'1.1-1' }} mi
+            </ng-container>
+            <ng-template #noDist>—</ng-template>
+          </td>
+
+          <td class="px-4 py-2 text-xs text-slate-300">
+            {{ v.timestamp_utc | date: 'yyyy-MM-dd HH:mm:ss' }}
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>

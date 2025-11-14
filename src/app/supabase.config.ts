@@ -1,0 +1,2 @@
+export const SUPABASE_URL = 'https://ksudmixptotaiynpvcvt.supabase.co';
+export const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtzdWRtaXhwdG90YWl5bnB2Y3Z0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMwMjk3OTMsImV4cCI6MjA3ODYwNTc5M30.aFBGBgi4DfOdS7yyJGVjfMwp_bkJsd-F8bPmOhDB4S0';
