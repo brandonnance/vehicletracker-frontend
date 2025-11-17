@@ -90,12 +90,14 @@
         class="bg-slate-900/60 border border-slate-700 text-sm rounded-md px-2 py-1"
       >
         <option value="ALL">All jobs</option>
-        <option
-          *ngFor="let job of jobsSummary"
-          [value]="job.job_id || 'UNASSIGNED'"
-        >
-          {{ job.job_code || 'Unassigned' }}
-        </option>
+        <option value="UNASSIGNED">Unassigned</option>
+        
+        <!-- Only include jobs that actually have a job_id -->
+        <ng-container *ngFor="let job of jobsSummary">
+          <option *ngIf="job.job_id" [value]="job.job_id">
+            {{ job.job_code || 'Unassigned' }}
+          </option>
+        </ng-container>
       </select>
     </div>
 

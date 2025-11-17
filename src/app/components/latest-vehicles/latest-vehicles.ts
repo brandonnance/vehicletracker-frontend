@@ -1,10 +1,7 @@
 import { Component, OnInit, OnDestroy, AfterViewInit } from '@angular/core';
 import { NgIf, NgFor, CommonModule } from '@angular/common';
 import { interval, Subscription } from 'rxjs';
-import {
-  SupabaseVehicleService,
-  LatestVehiclePosition,
-} from '../../services/supabase-vehicle';
+import { SupabaseVehicleService, LatestVehiclePosition } from '../../services/supabase-vehicle';
 import { FormsModule } from '@angular/forms';
 import { LatestVehicle } from '../../models/latest-vehicle.model';
 
@@ -14,12 +11,12 @@ import { isValidDate } from 'rxjs/internal/util/isDate';
 // Use Leaflet's CDN-hosted marker images
 const defaultIcon = L.icon({
   iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-  iconUrl:       'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-  shadowUrl:     'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-  iconSize:      [25, 41],
-  iconAnchor:    [12, 41],
-  popupAnchor:   [1, -34],
-  shadowSize:    [41, 41],
+  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41],
 });
 
 // Make this the default icon for all markers
@@ -33,13 +30,13 @@ interface JobSummary {
   vehicle_Names: string[];
 }
 
-type SortColumn = 
+type SortColumn =
   | 'vehicle_name'
   | 'vehicle_type'
   | 'job_code'
   | 'latitude'
   | 'longitude'
-  | 'timestamp_utc'
+  | 'timestamp_utc';
 
 @Component({
   selector: 'app-latest-vehicles',
@@ -48,52 +45,51 @@ type SortColumn =
   templateUrl: './latest-vehicles.html',
   styleUrls: ['./latest-vehicles.css'],
 })
-
 export class LatestVehiclesComponent implements OnInit, OnDestroy, AfterViewInit {
-    vehicles: LatestVehiclePosition[] = [];
-    loading = false;
-    error: string | null = null;
-    lastUpdated: Date | null = null;
+  vehicles: LatestVehiclePosition[] = [];
+  loading = false;
+  error: string | null = null;
+  lastUpdated: Date | null = null;
 
-    jobsSummary: JobSummary[] = [];
+  jobsSummary: JobSummary[] = [];
 
-    private autoRefreshSub?: Subscription;
-    private readonly REFRESH_INTERVAL_MS = 30_000; // 30 seconds
+  private autoRefreshSub?: Subscription;
+  private readonly REFRESH_INTERVAL_MS = 300_000; // 5 Minutes
 
-    // sort columns
-    sortColumn: SortColumn = 'vehicle_name';
-    sortDirection: 'asc' | 'desc' = 'asc';
+  // sort columns
+  sortColumn: SortColumn = 'vehicle_name';
+  sortDirection: 'asc' | 'desc' = 'asc';
 
-    // Leaflet map
-    private map?: L.Map;
-    private markersLayer?: L.LayerGroup;
+  // Leaflet map
+  private map?: L.Map;
+  private markersLayer?: L.LayerGroup;
 
-    // Filters
-    filterJobID: string = 'ALL';  // All or UNASSIGNED or specific job_id
-    filterSearch: string = '';
+  // Filters
+  filterJobID: string = 'ALL'; // All or UNASSIGNED or specific job_id
+  filterSearch: string = '';
 
-    constructor(private vehicleService: SupabaseVehicleService) {}
+  constructor(private vehicleService: SupabaseVehicleService) {}
 
-    ngOnInit(): void {
-      this.loadVehicles();
+  ngOnInit(): void {
+    this.loadVehicles();
 
-      // Auto-refresh every 30 seconds
-      this.autoRefreshSub = interval(this.REFRESH_INTERVAL_MS).subscribe(() => {
-        this.loadVehicles(false); // refresh silently without big loading state
-      });
-    }
+    // Auto-refresh every 30 seconds
+    this.autoRefreshSub = interval(this.REFRESH_INTERVAL_MS).subscribe(() => {
+      this.loadVehicles(false); // refresh silently without big loading state
+    });
+  }
 
-    ngAfterViewInit(): void {
-      // Initialize the map once the view is rendered
-      this.initMap();
-    }
+  ngAfterViewInit(): void {
+    // Initialize the map once the view is rendered
+    this.initMap();
+  }
 
-    ngOnDestroy(): void {
-      // Clean up subscription when component is destroyed
-      this.autoRefreshSub?.unsubscribe();
-    }
+  ngOnDestroy(): void {
+    // Clean up subscription when component is destroyed
+    this.autoRefreshSub?.unsubscribe();
+  }
 
-    onSort(column: SortColumn): void {
+  onSort(column: SortColumn): void {
     if (this.sortColumn === column) {
       // toggle direction
       this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
@@ -135,7 +131,7 @@ export class LatestVehiclesComponent implements OnInit, OnDestroy, AfterViewInit
           // If distance 9999 then Unassigned
           const isInvalidDistance = distance_m === 9999;
 
-          // DEBUG 
+          // DEBUG
           // console.log(isInvalidDistance, v.vehicle_name, v.job_code, distance_m);
 
           if (isInvalidDistance) {
@@ -156,7 +152,6 @@ export class LatestVehiclesComponent implements OnInit, OnDestroy, AfterViewInit
           };
         });
 
-
         this.buildJobsSummary();
         this.updateMapMarkers();
         if (showSpinner) {
@@ -174,41 +169,41 @@ export class LatestVehiclesComponent implements OnInit, OnDestroy, AfterViewInit
   }
 
   private buildJobsSummary(): void {
-      const summaryMap = new Map<string, JobSummary>();
+    const summaryMap = new Map<string, JobSummary>();
 
-      for (const v of this.vehicles) {
-        // Use a special key for "no job"
-        const key = v.job_id || 'UNASSIGNED';
+    for (const v of this.vehicles) {
+      // Use a special key for "no job"
+      const key = v.job_id || 'UNASSIGNED';
 
-        const existing = summaryMap.get(key);
+      const existing = summaryMap.get(key);
 
-        if (existing) {
-          existing.vehicle_count += 1;
-          existing.vehicle_Names.push(v.vehicle_name || '');
-        } else {
-          const isUnassigned = key === 'UNASSIGNED';
+      if (existing) {
+        existing.vehicle_count += 1;
+        existing.vehicle_Names.push(v.vehicle_name || '');
+      } else {
+        const isUnassigned = key === 'UNASSIGNED';
 
-          summaryMap.set(key, {
-            job_id: isUnassigned ? null : v.job_id,
-            job_code: isUnassigned ? 'Unassigned' : (v.job_code || 'Unassigned'),
-            job_name: isUnassigned ? 'No job assigned' : (v.job_name || 'No job assigned'),
-            vehicle_count: 1,
-            vehicle_Names: [v.vehicle_name || ''],
-          });
-        }
+        summaryMap.set(key, {
+          job_id: isUnassigned ? null : v.job_id,
+          job_code: isUnassigned ? 'Unassigned' : v.job_code || 'Unassigned',
+          job_name: isUnassigned ? 'No job assigned' : v.job_name || 'No job assigned',
+          vehicle_count: 1,
+          vehicle_Names: [v.vehicle_name || ''],
+        });
       }
-
-      // Jobs with vehicles first, Unassigned last, then by job_code
-      this.jobsSummary = Array.from(summaryMap.values()).sort((a, b) => {
-        const aUnassigned = a.job_id === null;
-        const bUnassigned = b.job_id === null;
-
-        if (aUnassigned && !bUnassigned) return 1;
-        if (!aUnassigned && bUnassigned) return -1;
-
-        return a.job_code.localeCompare(b.job_code);
-      });
     }
+
+    // Jobs with vehicles first, Unassigned last, then by job_code
+    this.jobsSummary = Array.from(summaryMap.values()).sort((a, b) => {
+      const aUnassigned = a.job_id === null;
+      const bUnassigned = b.job_id === null;
+
+      if (aUnassigned && !bUnassigned) return 1;
+      if (!aUnassigned && bUnassigned) return -1;
+
+      return a.job_code.localeCompare(b.job_code);
+    });
+  }
 
   private initMap(): void {
     if (this.map) return; // already initialized
@@ -219,8 +214,7 @@ export class LatestVehiclesComponent implements OnInit, OnDestroy, AfterViewInit
     });
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution:
-        '&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors',
+      attribution: '&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors',
     }).addTo(this.map);
 
     this.markersLayer = L.layerGroup().addTo(this.map);
@@ -254,9 +248,7 @@ export class LatestVehiclesComponent implements OnInit, OnDestroy, AfterViewInit
         </div>
       `;
 
-      L.marker(latlng)
-        .bindPopup(popupContent)
-        .addTo(this.markersLayer);
+      L.marker(latlng).bindPopup(popupContent).addTo(this.markersLayer);
     }
 
     if (latlngs.length > 0) {
@@ -317,28 +309,24 @@ export class LatestVehiclesComponent implements OnInit, OnDestroy, AfterViewInit
   }
 
   get filteredVehicles(): LatestVehicle[] {
-      let rows = [...this.vehicles];
+    let rows = [...this.vehicles];
 
-      // 1) Filter by job
-      if (this.filterJobID === 'UNASSIGNED') {
-        rows = rows.filter(v => !v.job_id);
-      } else if (this.filterJobID !== 'ALL') {
-        rows = rows.filter(v => v.job_id === this.filterJobID);
-      }
+    // 1) Filter by job
+    if (this.filterJobID === 'UNASSIGNED') {
+      rows = rows.filter((v) => !v.job_id);
+    } else if (this.filterJobID !== 'ALL') {
+      rows = rows.filter((v) => v.job_id === this.filterJobID);
+    }
 
-      // 2) text search
-      const q = this.filterSearch.trim().toLowerCase();
-      if (q) {
-        rows = rows.filter(v => {
-          const name = (v.vehicle_name || '').toLowerCase();
-          const jobCode = (v.job_code || '').toLowerCase();
-          const jobName = (v.job_name || '').toLowerCase();
-          return (
-            name.includes(q) ||
-            jobCode.includes(q) ||
-            jobName.includes(q)
-          );
-        });
+    // 2) text search
+    const q = this.filterSearch.trim().toLowerCase();
+    if (q) {
+      rows = rows.filter((v) => {
+        const name = (v.vehicle_name || '').toLowerCase();
+        const jobCode = (v.job_code || '').toLowerCase();
+        const jobName = (v.job_name || '').toLowerCase();
+        return name.includes(q) || jobCode.includes(q) || jobName.includes(q);
+      });
     }
 
     // 3) Sorting
@@ -384,61 +372,50 @@ export class LatestVehiclesComponent implements OnInit, OnDestroy, AfterViewInit
     }
   }
 
-  private haversineDistanceMeters(
-      lat1: number,
-      lon1: number,
-      lat2: number,
-      lon2: number
-    ): number {
-      const R = 6371000; // meters
-      const toRad = (deg: number) => (deg * Math.PI) / 180;
+  private haversineDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
+    const R = 6371000; // meters
+    const toRad = (deg: number) => (deg * Math.PI) / 180;
 
-      const φ1 = toRad(lat1);
-      const φ2 = toRad(lat2);
-      const dφ = toRad(lat2 - lat1);
-      const dλ = toRad(lon2 - lon1);
+    const φ1 = toRad(lat1);
+    const φ2 = toRad(lat2);
+    const dφ = toRad(lat2 - lat1);
+    const dλ = toRad(lon2 - lon1);
 
-      const a =
-        Math.sin(dφ / 2) * Math.sin(dφ / 2) +
-        Math.cos(φ1) * Math.cos(φ2) * Math.sin(dλ / 2) * Math.sin(dλ / 2);
+    const a =
+      Math.sin(dφ / 2) * Math.sin(dφ / 2) +
+      Math.cos(φ1) * Math.cos(φ2) * Math.sin(dλ / 2) * Math.sin(dλ / 2);
 
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
-      const distance = R * c;
+    const distance = R * c;
 
-      if (distance > 2000) {
-        return 9999;
-      } else {
-        return R * c;
-      }
-
+    if (distance > 2000) {
+      return 9999;
+    } else {
+      return R * c;
+    }
   }
 
   private trueHaversineDistanceMeters(
-      lat1: number,
-      lon1: number,
-      lat2: number,
-      lon2: number
-    ): number {
-      const R = 6371000; // meters
-      const toRad = (deg: number) => (deg * Math.PI) / 180;
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number
+  ): number {
+    const R = 6371000; // meters
+    const toRad = (deg: number) => (deg * Math.PI) / 180;
 
-      const φ1 = toRad(lat1);
-      const φ2 = toRad(lat2);
-      const dφ = toRad(lat2 - lat1);
-      const dλ = toRad(lon2 - lon1);
+    const φ1 = toRad(lat1);
+    const φ2 = toRad(lat2);
+    const dφ = toRad(lat2 - lat1);
+    const dλ = toRad(lon2 - lon1);
 
-      const a =
-        Math.sin(dφ / 2) * Math.sin(dφ / 2) +
-        Math.cos(φ1) * Math.cos(φ2) * Math.sin(dλ / 2) * Math.sin(dλ / 2);
+    const a =
+      Math.sin(dφ / 2) * Math.sin(dφ / 2) +
+      Math.cos(φ1) * Math.cos(φ2) * Math.sin(dλ / 2) * Math.sin(dλ / 2);
 
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
-      return R * c;
-      
-
+    return R * c;
   }
-
-
-
 }
