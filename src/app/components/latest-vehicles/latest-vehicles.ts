@@ -5,6 +5,7 @@ import { SupabaseVehicleService, LatestVehiclePosition } from '../../services/su
 import { FormsModule } from '@angular/forms';
 import { LatestVehicle } from '../../models/latest-vehicle.model';
 import { JobsService, JobRecord, CreateJobInput } from '../../services/jobs.service';
+import { timer } from 'rxjs';
 
 import * as L from 'leaflet';
 import { isValidDate } from 'rxjs/internal/util/isDate';
@@ -221,6 +222,39 @@ export class LatestVehiclesComponent implements OnInit, OnDestroy, AfterViewInit
           vehicle_Names: [v.vehicle_name || ''],
         });
       }
+
+      // Initial render (fast)
+      this.jobsSummary = Array.from(summaryMap.values()).sort((a, b) => {
+        return this.compareJobSummaries(a, b);
+      });
+
+      // 2) SECOND PASS — MERGE IN ALL JOBS FROM DATABASE (0-vehicle jobs)
+
+      this.jobsService.getAllJobs().subscribe({
+        next: (jobs) => {
+          for (const job of jobs) {
+            const key = job.id; // DB PK
+
+            if (!summaryMap.has(key)) {
+              summaryMap.set(key, {
+                id: job.id,
+                job_code: job.job_code,
+                job_name: job.name,
+                vehicle_count: 0,
+                vehicle_Names: [],
+              });
+            }
+          }
+
+          // Final list after merging DB jobs
+          this.jobsSummary = Array.from(summaryMap.values()).sort((a, b) => {
+            return this.compareJobSummaries(a, b);
+          });
+        },
+        error: (err) => {
+          console.error('Failed to load all jobs for summary', err);
+        },
+      });
     }
 
     // Jobs with vehicles first, Unassigned last, then by job_code
@@ -233,6 +267,35 @@ export class LatestVehiclesComponent implements OnInit, OnDestroy, AfterViewInit
 
       return a.job_code.localeCompare(b.job_code);
     });
+  }
+
+  private compareJobSummaries(a: JobSummary, b: JobSummary): number {
+    const group = (j: JobSummary): number => {
+      const isUnassigned = j.id === null;
+
+      if (!isUnassigned && j.vehicle_count > 0) {
+        // Group 0: jobs with vehicles
+        return 0;
+      }
+
+      if (isUnassigned) {
+        // Group 1: Unassigned bucket
+        return 1;
+      }
+
+      // Group 2: jobs with 0 vehicles
+      return 2;
+    };
+
+    const groupA = group(a);
+    const groupB = group(b);
+
+    if (groupA !== groupB) {
+      return groupA - groupB;
+    }
+
+    // Within the same group, sort by job_code
+    return a.job_code.localeCompare(b.job_code);
   }
 
   private initMap(): void {
@@ -519,8 +582,6 @@ export class LatestVehiclesComponent implements OnInit, OnDestroy, AfterViewInit
       return;
     }
 
-    console.log('Trying to update ', this.jobForm.id);
-
     // Keep form in a clean numeric state
     this.jobForm.latitude = lat;
     this.jobForm.longitude = lng;
@@ -532,20 +593,29 @@ export class LatestVehiclesComponent implements OnInit, OnDestroy, AfterViewInit
       longitude: lng,
     };
 
-    if (this.jobIsEditMode && this.jobForm.id) {
-      // 🔹 EDIT existing job by job_id (PK)
-      this.jobsService.updateJob(this.jobForm.id, changes).subscribe({
+    // Helper: after any DB change, recompute assignments + reload vehicles
+    const refreshAndReload = () => {
+      this.jobsService.triggerVehiclePositionsRefresh().subscribe({
         next: () => {
-          const idx = this.jobsSummary.findIndex((j) => j.id === this.jobForm.id);
-          if (idx !== -1) {
-            this.jobsSummary[idx] = {
-              ...this.jobsSummary[idx],
-              job_code: jobCode, // from the form
-              job_name: jobName, // from the form
-            };
-          }
+          this.loadVehicles(); // pulls fresh latest_vehicle_positions + rebuilds jobsSummary
+        },
+        error: (err) => {
+          console.error('Failed to refresh vehicle assignments', err);
+          // even if this fails, you can still call this.loadVehicles() directly if you want
+        },
+      });
+    };
 
+    if (this.jobIsEditMode && this.jobForm.id) {
+      // 🔹 EDIT existing job
+      const id = this.jobForm.id;
+
+      this.jobsService.updateJob(id, changes).subscribe({
+        next: () => {
           this.closeJobModal();
+          // For edits, you can skip the heavy RPC if you want,
+          // but to keep behavior consistent we’ll use the helper:
+          refreshAndReload();
         },
         error: (err) => {
           console.error('Update job error', err);
@@ -553,49 +623,21 @@ export class LatestVehiclesComponent implements OnInit, OnDestroy, AfterViewInit
         },
       });
     } else {
-      // 🔹 CREATE new job (Supabase generates job_id)
+      // 🔹 CREATE new job (Supabase generates id)
       this.jobsService.createJob(changes).subscribe({
-        next: (rows) => {
-          const created = rows[0];
-
-          // Add to jobsSummary using the new job_id from DB
-          const exists = this.jobsSummary.some((j) => j.id === created.id);
-          if (!exists) {
-            this.jobsSummary.push({
-              id: created.id,
-              job_code: created.job_code,
-              job_name: created.job_name,
-              vehicle_count: 0,
-              vehicle_Names: [],
-            });
-
-            this.jobsSummary = this.jobsSummary.sort((a, b) =>
-              (a.job_code || '').localeCompare(b.job_code || '')
-            );
-          }
-
+        next: () => {
           this.closeJobModal();
+          refreshAndReload();
         },
         error: (err) => {
           console.error('Create job error', err);
           alert('Failed to create job. Check console for details.');
         },
       });
-
-      // Runs SQL function on Supabase that can re-assign closest jobs since it was set to null
-
-      this.jobsService.triggerVehiclePositionsRefresh().subscribe({
-        next: () => {
-          this.loadVehicles(); // your existing function for refresh
-        },
-        error: (err) => {
-          console.error('Failed to refresh vehicle assignments', err);
-        },
-      });
     }
 
-    // Rebuild page
-    this.loadVehicles();
+    // ❌ IMPORTANT: no unconditional this.loadVehicles() here anymore.
+    // We only reload *after* the API call succeeds.
   }
 
   // 🔹 Delete job (local only for now)

@@ -11,6 +11,14 @@ export interface JobRecord {
   longitude: number | null;
 }
 
+export interface AllJobRecord {
+  id: string;
+  name: string;
+  job_code: string;
+  latitude: number | null;
+  longitude: number | null;
+}
+
 // ✅ what we send when creating/updating (no job_id)
 export type CreateJobInput = Omit<JobRecord, 'id'>;
 
@@ -89,5 +97,10 @@ export class JobsService {
   getJobById(id: string) {
     const url = `${SUPABASE_URL}/rest/v1/jobs?id=eq.${encodeURIComponent(id)}`;
     return this.http.get<JobRecord[]>(url, { headers: this.headers });
+  }
+
+  getAllJobs() {
+    const url = `${SUPABASE_URL}/rest/v1/jobs`;
+    return this.http.get<AllJobRecord[]>(url, { headers: this.headers });
   }
 }

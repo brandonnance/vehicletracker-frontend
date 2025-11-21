@@ -18,15 +18,24 @@
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
     <!-- Per-job breakdown -->
     <div class="lg:col-span-1 space-y-3">
-      <h2 class="text-lg font-semibold mb-1">Per-Job Breakdown</h2>
-
-      <!-- Create Job button -->
+      <h2 class="text-lg font-semibold mb-1">
+        Per-Job Breakdown
+        <!-- Create Job button -->
+        <button
+          class="px-2 py-1 text-xs rounded-md border border-slate-600 hover:bg-slate-800"
+          (click)="openCreateJobModal()"
+        >
+          + Create Job
+        </button>
+      </h2>
+      <!-- 
+      
       <button
         class="px-2 py-1 text-xs rounded-md border border-slate-600 hover:bg-slate-800"
         (click)="openCreateJobModal()"
       >
         + Create Job
-      </button>
+      </button> -->
 
       <div *ngIf="jobsSummary.length === 0" class="text-slate-400 text-sm">No vehicles yet.</div>
 
