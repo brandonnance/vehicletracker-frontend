@@ -67,6 +67,8 @@ export class LatestVehiclesComponent implements OnInit, OnDestroy, AfterViewInit
   // Filters
   filterJobID: string = 'ALL'; // All or UNASSIGNED or specific job_id
   filterSearch: string = '';
+  isCheckedCivil: boolean = true;
+  isCheckedPipeline: boolean = true;
 
   constructor(private vehicleService: SupabaseVehicleService) {}
 
@@ -329,6 +331,17 @@ export class LatestVehiclesComponent implements OnInit, OnDestroy, AfterViewInit
       });
     }
 
+    // 2.5) checkboxes for Civil or Pipeline
+    if (this.isCheckedCivil || this.isCheckedPipeline) {
+      rows = rows.filter((v) => {
+        const t = (v.vehicle_type || '').toLowerCase();
+        const isCivil = t === 'civil';
+        const isPipeline = t === 'pipeline';
+
+        return (this.isCheckedCivil && isCivil) || (this.isCheckedPipeline && isPipeline);
+      });
+    }
+
     // 3) Sorting
     if (this.sortColumn && this.sortDirection) {
       rows.sort((a, b) => {
@@ -417,5 +430,32 @@ export class LatestVehiclesComponent implements OnInit, OnDestroy, AfterViewInit
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
     return R * c;
+  }
+
+  editingTypeId: string | null = null;
+  typeOptions: string[] = ['Civil', 'Pipeline'];
+
+  startEditType(v: LatestVehicle): void {
+    this.editingTypeId = v.vehicle_id;
+  }
+
+  cancelEditType(): void {
+    this.editingTypeId = null;
+  }
+
+  onTypeChange(v: LatestVehicle, newType: string): void {
+    // call Supabase to update the vehicle
+    this.vehicleService.updateVehicleType(v.vehicle_id, newType).subscribe({
+      next: () => {
+        // update local state so UI reflects the change
+        v.vehicle_type = newType;
+        this.editingTypeId = null;
+      },
+      error: (err) => {
+        console.error('Failed to update vehicle Type', err);
+        // optional: show a toast / error banner
+        this.editingTypeId = null;
+      },
+    });
   }
 }

@@ -24,22 +24,36 @@ export interface LatestVehiclePosition {
 }
 
 @Injectable({
-  providedIn: 'root'
+  providedIn: 'root',
 })
 export class SupabaseVehicleService {
-
   constructor(private http: HttpClient) {}
 
-  getLatestPositions(): Observable<LatestVehiclePosition[]> {
-    const url = `${SUPABASE_URL}/rest/v1/latest_vehicle_positions`;
-
+  getHeaders() {
     const headers = new HttpHeaders({
       apikey: SUPABASE_ANON_KEY,
       Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
     });
 
+    return headers;
+  }
+
+  getLatestPositions(): Observable<LatestVehiclePosition[]> {
+    const url = `${SUPABASE_URL}/rest/v1/latest_vehicle_positions`;
+
+    const headers = this.getHeaders();
+
     const params = new HttpParams().set('select', '*');
 
     return this.http.get<LatestVehiclePosition[]>(url, { headers, params });
+  }
+
+  updateVehicleType(vehicleId: string, newType: string): Observable<any> {
+    const url = `${SUPABASE_URL}/rest/v1/vehicles?id=eq.${vehicleId}`;
+
+    const headers = this.getHeaders().set('Content-Type', 'application/json');
+    // getHeaders should already add your apikey and anon/service token
+
+    return this.http.patch(url, { type: newType }, { headers });
   }
 }

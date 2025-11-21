@@ -7,50 +7,44 @@
       <div *ngIf="lastUpdated">
         Last updated:
         <span class="font-mono text-slate-300">
-          {{ lastUpdated | date: 'shortTime' }}
+          {{ lastUpdated | date : 'shortTime' }}
         </span>
       </div>
-      <div *ngIf="!lastUpdated">
-        Waiting for first load...
-      </div>
+      <div *ngIf="!lastUpdated">Waiting for first load...</div>
     </div>
   </div>
 
   <!-- Top row: per-job breakdown + map -->
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
     <!-- Per-job breakdown -->
     <div class="lg:col-span-1 space-y-3">
       <h2 class="text-lg font-semibold mb-1">Per-Job Breakdown</h2>
 
-      <div *ngIf="jobsSummary.length === 0" class="text-slate-400 text-sm">
-        No vehicles yet.
-      </div>
+      <div *ngIf="jobsSummary.length === 0" class="text-slate-400 text-sm">No vehicles yet.</div>
 
       <!-- New Scrolling Wrapper -->
-       <div class="max-h-[47rem] overflow-y-auto space-y-3 pr-1">
+      <div class="max-h-[47rem] overflow-y-auto space-y-3 pr-1">
         <div
           *ngFor="let job of jobsSummary"
           class="border border-slate-800 rounded-lg px-3 py-2 bg-slate-900/40 max-h-72 overflow-y-auto"
           [attr.title]="job.vehicle_Names.join('\n')"
         >
-            <div class="flex items-center justify-between">
-              <div>
-                  <div class="font-medium text-sm">
-                    {{ job.job_code }}
-                  </div>
-                  <div class="text-xs text-slate-400">
-                    {{ job.job_name }}
-                  </div>
-                  </div>
-                  <div class="text-sm font-semibold">
-                    {{ job.vehicle_count }} vehicle{{ job.vehicle_count === 1 ? '' : 's' }}
-                  </div>
-                
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="font-medium text-sm">
+                {{ job.job_code }}
+              </div>
+              <div class="text-xs text-slate-400">
+                {{ job.job_name }}
+              </div>
+            </div>
+            <div class="text-sm font-semibold">
+              {{ job.vehicle_count }} vehicle{{ job.vehicle_count === 1 ? '' : 's' }}
             </div>
           </div>
         </div>
       </div>
+    </div>
 
     <!-- Map -->
     <div class="lg:col-span-2">
@@ -62,9 +56,7 @@
     </div>
   </div>
 
-  <div *ngIf="loading" class="text-slate-400 mb-4">
-    Loading latest positions...
-  </div>
+  <div *ngIf="loading" class="text-slate-400 mb-4">Loading latest positions...</div>
 
   <div *ngIf="error" class="text-red-400 mb-4">
     {{ error }}
@@ -74,24 +66,22 @@
     No vehicle positions found.
   </div>
 
-    <!-- Add breaks for spacing -->
-  <br><br>
-    <!--  -->
+  <!-- Add breaks for spacing -->
+  <br /><br />
+  <!--  -->
 
   <!-- Filters for bottom table -->
   <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
     <!-- Left: job filter -->
     <div class="flex items-center gap-2">
-      <label class="text-xs uppercase tracking-wide text-slate-400">
-        Job
-      </label>
+      <label class="text-xs uppercase tracking-wide text-slate-400"> Job </label>
       <select
         [(ngModel)]="filterJobID"
         class="bg-slate-900/60 border border-slate-700 text-sm rounded-md px-2 py-1"
       >
         <option value="ALL">All jobs</option>
         <option value="UNASSIGNED">Unassigned</option>
-        
+
         <!-- Only include jobs that actually have a job_id -->
         <ng-container *ngFor="let job of jobsSummary">
           <option *ngIf="job.job_id" [value]="job.job_id">
@@ -99,6 +89,14 @@
           </option>
         </ng-container>
       </select>
+    </div>
+
+    <!-- Middle: Checkboxes to have table include Pipeline and/or Civil Vehicles -->
+    <div class="flex items-center gap-2">
+      <input type="checkbox" [(ngModel)]="isCheckedCivil" />
+      <label>Civil Vehicles </label>
+      <input type="checkbox" [(ngModel)]="isCheckedPipeline" style="margin-left: 50px" />
+      <label>Pipeline Vehicles </label>
     </div>
 
     <!-- Right: search box -->
@@ -125,31 +123,26 @@
               {{ sortDirection === 'asc' ? '▲' : '▼' }}
             </span>
           </th>
-          
-          <th
-            class="px-4 py-2 text-left cursor-pointer select-none"
-            (click)="onSort('job_code')"
-          >
+
+          <th class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide">
+            Vehicle Owner
+          </th>
+
+          <th class="px-4 py-2 text-left cursor-pointer select-none" (click)="onSort('job_code')">
             Job
             <span *ngIf="sortColumn === 'job_code'">
               {{ sortDirection === 'asc' ? '▲' : '▼' }}
             </span>
           </th>
-          
-          <th
-            class="px-4 py-2 text-left cursor-pointer select-none"
-            (click)="onSort('latitude')"
-          >
+
+          <th class="px-4 py-2 text-left cursor-pointer select-none" (click)="onSort('latitude')">
             Latitude
             <span *ngIf="sortColumn === 'latitude'">
               {{ sortDirection === 'asc' ? '▲' : '▼' }}
             </span>
           </th>
-          
-          <th
-            class="px-4 py-2 text-left cursor-pointer select-none"
-            (click)="onSort('longitude')"
-          >
+
+          <th class="px-4 py-2 text-left cursor-pointer select-none" (click)="onSort('longitude')">
             Longitude
             <span *ngIf="sortColumn === 'longitude'">
               {{ sortDirection === 'asc' ? '▲' : '▼' }}
@@ -178,12 +171,34 @@
         >
           <td class="px-4 py-2">
             <div class="font-medium">{{ v.vehicle_name }}</div>
-            <!-- <div class="text-xs text-slate-400">{{ v.vehicle_id }}</div> -->
           </td>
 
-          <!-- <td class="px-4 py-2">
-            {{ v.vehicle_type || '—' }}
-          </td> -->
+          <td class="px-3 py-2 text-xs">
+            <!-- View mode -->
+            <ng-container *ngIf="editingTypeId !== v.vehicle_id; else editType">
+              <span
+                class="cursor-pointer underline decoration-dotted"
+                (click)="startEditType(v)"
+                title="Click to change type"
+              >
+                {{ v.vehicle_type || 'Civil' }}
+              </span>
+            </ng-container>
+
+            <!-- Edit mode -->
+            <ng-template #editType>
+              <select
+                class="bg-slate-900 border border-slate-600 text-xs rounded px-1 py-0.5"
+                [ngModel]="v.vehicle_type || 'Civil'"
+                (ngModelChange)="onTypeChange(v, $event)"
+                (blur)="cancelEditType()"
+              >
+                <option *ngFor="let opt of typeOptions" [ngValue]="opt">
+                  {{ opt }}
+                </option>
+              </select>
+            </ng-template>
+          </td>
 
           <td class="px-4 py-2">
             <div *ngIf="v.job_code; else noJob">
@@ -196,23 +211,23 @@
           </td>
 
           <td class="px-4 py-2">
-            {{ v.latitude | number: '1.5-5' }}
+            {{ v.latitude | number : '1.5-5' }}
           </td>
 
           <td class="px-4 py-2">
-            {{ v.longitude | number: '1.5-5' }}
+            {{ v.longitude | number : '1.5-5' }}
           </td>
 
           <td class="px-3 py-2 text-xs text-right">
             <ng-container *ngIf="v.distance_m != null; else noDist">
               <!-- show miles with 1 decimal -->
-              {{ (v.distance_m / 1609.34) | number:'1.1-1' }} mi
+              {{ v.distance_m / 1609.34 | number : '1.1-1' }} mi
             </ng-container>
             <ng-template #noDist>—</ng-template>
           </td>
 
           <td class="px-4 py-2 text-xs text-slate-300">
-            {{ v.timestamp_utc | date: 'yyyy-MM-dd HH:mm:ss' }}
+            {{ v.timestamp_utc | date : 'yyyy-MM-dd HH:mm:ss' }}
           </td>
         </tr>
       </tbody>
