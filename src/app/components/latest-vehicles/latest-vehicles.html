@@ -20,26 +20,49 @@
     <div class="lg:col-span-1 space-y-3">
       <h2 class="text-lg font-semibold mb-1">Per-Job Breakdown</h2>
 
+      <!-- Create Job button -->
+      <button
+        class="px-2 py-1 text-xs rounded-md border border-slate-600 hover:bg-slate-800"
+        (click)="openCreateJobModal()"
+      >
+        + Create Job
+      </button>
+
       <div *ngIf="jobsSummary.length === 0" class="text-slate-400 text-sm">No vehicles yet.</div>
 
-      <!-- New Scrolling Wrapper -->
+      <!-- Scrolling Wrapper -->
       <div class="max-h-[47rem] overflow-y-auto space-y-3 pr-1">
+        <!-- Job Card -->
         <div
           *ngFor="let job of jobsSummary"
-          class="border border-slate-800 rounded-lg px-3 py-2 bg-slate-900/40 max-h-72 overflow-y-auto"
+          class="border border-slate-800 rounded-lg px-3 py-2 bg-slate-900/40"
           [attr.title]="job.vehicle_Names.join('\n')"
         >
-          <div class="flex items-center justify-between">
-            <div>
-              <div class="font-medium text-sm">
+          <div class="flex items-center justify-between gap-3">
+            <!-- LEFT SIDE -->
+            <div class="min-w-0">
+              <div class="font-medium text-sm truncate">
                 {{ job.job_code }}
               </div>
-              <div class="text-xs text-slate-400">
+              <div class="text-xs text-slate-400 truncate">
                 {{ job.job_name }}
               </div>
             </div>
-            <div class="text-sm font-semibold">
-              {{ job.vehicle_count }} vehicle{{ job.vehicle_count === 1 ? '' : 's' }}
+
+            <!-- RIGHT SIDE -->
+            <div class="flex items-center gap-3 shrink-0">
+              <!-- vehicle count -->
+              <div class="text-xs text-slate-300 text-right min-w-[5.5rem]">
+                {{ job.vehicle_count }} vehicle{{ job.vehicle_count === 1 ? '' : 's' }}
+              </div>
+
+              <!-- edit button -->
+              <button
+                class="px-2 py-1 text-[11px] rounded border border-slate-600 hover:bg-slate-800"
+                (click)="openEditJobModal(job)"
+              >
+                Edit
+              </button>
             </div>
           </div>
         </div>
@@ -84,7 +107,7 @@
 
         <!-- Only include jobs that actually have a job_id -->
         <ng-container *ngFor="let job of jobsSummary">
-          <option *ngIf="job.job_id" [value]="job.job_id">
+          <option *ngIf="job.id" [value]="job.id">
             {{ job.job_code || 'Unassigned' }}
           </option>
         </ng-container>
@@ -232,5 +255,89 @@
         </tr>
       </tbody>
     </table>
+  </div>
+
+  <!-- Job Create/Edit Modal -->
+  <div
+    *ngIf="jobModalOpen"
+    class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60"
+  >
+    <div class="bg-slate-900 rounded-2xl shadow-xl w-full max-w-lg p-6 border border-slate-700">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-sm font-semibold">
+          {{ jobIsEditMode ? 'Edit Job' : 'Create Job' }}
+        </h3>
+        <button class="text-xs text-slate-400 hover:text-slate-200" (click)="closeJobModal()">
+          ✕
+        </button>
+      </div>
+
+      <div class="space-y-3">
+        <label class="block text-xs text-slate-400">
+          Job Name
+          <input
+            type="text"
+            class="mt-1 w-full rounded-md bg-slate-800 border border-slate-700 px-2 py-1 text-sm"
+            [(ngModel)]="jobForm.name"
+          />
+        </label>
+
+        <label class="block text-xs text-slate-400">
+          Job Number
+          <input
+            type="text"
+            class="mt-1 w-full rounded-md bg-slate-800 border border-slate-700 px-2 py-1 text-sm"
+            [(ngModel)]="jobForm.job_code"
+          />
+        </label>
+
+        <div class="grid grid-cols-2 gap-3">
+          <label class="block text-xs text-slate-400">
+            Latitude
+            <input
+              type="number"
+              step="0.000001"
+              class="mt-1 w-full rounded-md bg-slate-800 border border-slate-700 px-2 py-1 text-sm"
+              [(ngModel)]="jobForm.latitude"
+            />
+          </label>
+
+          <label class="block text-xs text-slate-400">
+            Longitude
+            <input
+              type="number"
+              step="0.000001"
+              class="mt-1 w-full rounded-md bg-slate-800 border border-slate-700 px-2 py-1 text-sm"
+              [(ngModel)]="jobForm.longitude"
+            />
+          </label>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-between mt-6">
+        <button
+          *ngIf="jobIsEditMode"
+          class="text-xs text-red-400 hover:text-red-300"
+          (click)="deleteJob()"
+        >
+          Delete Job
+        </button>
+
+        <div class="flex-1"></div>
+
+        <button
+          class="mr-2 px-3 py-1 text-xs rounded-md border border-slate-600 hover:bg-slate-800"
+          (click)="closeJobModal()"
+        >
+          Cancel
+        </button>
+        <button
+          class="px-3 py-1 text-xs rounded-md bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-semibold"
+          (click)="saveJob()"
+        >
+          Save
+        </button>
+      </div>
+    </div>
   </div>
 </div>

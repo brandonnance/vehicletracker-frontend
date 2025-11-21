@@ -1,12 +1,14 @@
-import { Component, OnInit, OnDestroy, AfterViewInit } from '@angular/core';
+import { Component, OnInit, OnDestroy, AfterViewInit, ChangeDetectorRef } from '@angular/core';
 import { NgIf, NgFor, CommonModule } from '@angular/common';
 import { interval, Subscription } from 'rxjs';
 import { SupabaseVehicleService, LatestVehiclePosition } from '../../services/supabase-vehicle';
 import { FormsModule } from '@angular/forms';
 import { LatestVehicle } from '../../models/latest-vehicle.model';
+import { JobsService, JobRecord, CreateJobInput } from '../../services/jobs.service';
 
 import * as L from 'leaflet';
 import { isValidDate } from 'rxjs/internal/util/isDate';
+import { HttpClient } from '@angular/common/http';
 
 // Use Leaflet's CDN-hosted marker images
 const defaultIcon = L.icon({
@@ -23,11 +25,19 @@ const defaultIcon = L.icon({
 (L.Marker as any).prototype.options.icon = defaultIcon;
 
 interface JobSummary {
-  job_id: string | null;
+  id: string | null;
   job_code: string;
   job_name: string;
   vehicle_count: number;
   vehicle_Names: string[];
+}
+
+interface JobForm {
+  id?: string | null;
+  job_code: string;
+  name: string;
+  latitude: number | null;
+  longitude: number | null;
 }
 
 type SortColumn =
@@ -45,6 +55,8 @@ type SortColumn =
   templateUrl: './latest-vehicles.html',
   styleUrls: ['./latest-vehicles.css'],
 })
+
+// Latest Vehicles Component class
 export class LatestVehiclesComponent implements OnInit, OnDestroy, AfterViewInit {
   vehicles: LatestVehiclePosition[] = [];
   loading = false;
@@ -52,6 +64,17 @@ export class LatestVehiclesComponent implements OnInit, OnDestroy, AfterViewInit
   lastUpdated: Date | null = null;
 
   jobsSummary: JobSummary[] = [];
+
+  // 🔹 Job modal state used for creating/editing jobs
+  jobModalOpen = false;
+  jobIsEditMode = false;
+  jobForm: JobForm = {
+    id: null,
+    job_code: '',
+    name: '',
+    latitude: null,
+    longitude: null,
+  };
 
   private autoRefreshSub?: Subscription;
   private readonly REFRESH_INTERVAL_MS = 300_000; // 5 Minutes
@@ -70,7 +93,12 @@ export class LatestVehiclesComponent implements OnInit, OnDestroy, AfterViewInit
   isCheckedCivil: boolean = true;
   isCheckedPipeline: boolean = true;
 
-  constructor(private vehicleService: SupabaseVehicleService) {}
+  constructor(
+    private vehicleService: SupabaseVehicleService,
+    private http: HttpClient,
+    private cdr: ChangeDetectorRef,
+    private jobsService: JobsService
+  ) {}
 
   ngOnInit(): void {
     this.loadVehicles();
@@ -186,7 +214,7 @@ export class LatestVehiclesComponent implements OnInit, OnDestroy, AfterViewInit
         const isUnassigned = key === 'UNASSIGNED';
 
         summaryMap.set(key, {
-          job_id: isUnassigned ? null : v.job_id,
+          id: isUnassigned ? null : v.job_id,
           job_code: isUnassigned ? 'Unassigned' : v.job_code || 'Unassigned',
           job_name: isUnassigned ? 'No job assigned' : v.job_name || 'No job assigned',
           vehicle_count: 1,
@@ -197,8 +225,8 @@ export class LatestVehiclesComponent implements OnInit, OnDestroy, AfterViewInit
 
     // Jobs with vehicles first, Unassigned last, then by job_code
     this.jobsSummary = Array.from(summaryMap.values()).sort((a, b) => {
-      const aUnassigned = a.job_id === null;
-      const bUnassigned = b.job_id === null;
+      const aUnassigned = a.id === null;
+      const bUnassigned = b.id === null;
 
       if (aUnassigned && !bUnassigned) return 1;
       if (!aUnassigned && bUnassigned) return -1;
@@ -385,6 +413,59 @@ export class LatestVehiclesComponent implements OnInit, OnDestroy, AfterViewInit
     }
   }
 
+  // 🔹 Open "Create Job" modal (blank)
+  openCreateJobModal(): void {
+    this.jobIsEditMode = false;
+    this.jobForm = {
+      id: null,
+      job_code: '',
+      name: '',
+      latitude: null,
+      longitude: null,
+    };
+    this.jobModalOpen = true;
+  }
+
+  // 🔹 Open "Edit Job" modal from a JobSummary row
+  openEditJobModal(job: JobSummary): void {
+    this.jobIsEditMode = true;
+
+    this.jobForm = {
+      id: job.id,
+      job_code: job.job_code,
+      name: job.job_name,
+      latitude: null,
+      longitude: null,
+    };
+
+    const realId = job.id ?? job.id;
+    if (!realId) return; // safety guard
+
+    // Fetch full job record from Supabase to get lat/long
+    this.jobsService.getJobById(realId).subscribe({
+      next: (rows) => {
+        if (rows.length === 1) {
+          const full = rows[0];
+          this.jobForm.latitude = full.latitude;
+          this.jobForm.longitude = full.longitude;
+        }
+
+        this.jobModalOpen = true;
+        this.cdr.detectChanges(); // ensures modal refreshes correctly
+      },
+      error: (err) => {
+        console.error('Failed to load job details', err);
+        alert('Failed to load job details. Check console.');
+        this.jobModalOpen = true; // still open modal even if lat/long fails
+      },
+    });
+  }
+
+  // 🔹 Close modal
+  closeJobModal(): void {
+    this.jobModalOpen = false;
+  }
+
   private haversineDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
     const R = 6371000; // meters
     const toRad = (deg: number) => (deg * Math.PI) / 180;
@@ -407,6 +488,166 @@ export class LatestVehiclesComponent implements OnInit, OnDestroy, AfterViewInit
     } else {
       return R * c;
     }
+  }
+
+  // 🔹 Save job (create or edit)
+  saveJob(): void {
+    const jobCode = this.jobForm.job_code.trim();
+    const jobName = this.jobForm.name.trim();
+
+    if (!jobCode || !jobName) {
+      alert('Job Number and Name are required.');
+      return;
+    }
+
+    // ✅ Parse latitude / longitude to numbers
+    const lat = this.parseNumber(this.jobForm.latitude);
+    const lng = this.parseNumber(this.jobForm.longitude);
+
+    if (lat === null || lng === null) {
+      alert('Latitude and longitude are required and must be valid numbers.');
+      return;
+    }
+
+    // ✅ Range checks
+    if (lat < -90 || lat > 90) {
+      alert('Latitude must be between -90 and 90 degrees.');
+      return;
+    }
+    if (lng < -180 || lng > 180) {
+      alert('Longitude must be between -180 and 180 degrees.');
+      return;
+    }
+
+    console.log('Trying to update ', this.jobForm.id);
+
+    // Keep form in a clean numeric state
+    this.jobForm.latitude = lat;
+    this.jobForm.longitude = lng;
+
+    const changes: CreateJobInput = {
+      job_code: jobCode,
+      job_name: jobName,
+      latitude: lat,
+      longitude: lng,
+    };
+
+    if (this.jobIsEditMode && this.jobForm.id) {
+      // 🔹 EDIT existing job by job_id (PK)
+      this.jobsService.updateJob(this.jobForm.id, changes).subscribe({
+        next: () => {
+          const idx = this.jobsSummary.findIndex((j) => j.id === this.jobForm.id);
+          if (idx !== -1) {
+            this.jobsSummary[idx] = {
+              ...this.jobsSummary[idx],
+              job_code: jobCode, // from the form
+              job_name: jobName, // from the form
+            };
+          }
+
+          this.closeJobModal();
+        },
+        error: (err) => {
+          console.error('Update job error', err);
+          alert('Failed to update job. Check console for details.');
+        },
+      });
+    } else {
+      // 🔹 CREATE new job (Supabase generates job_id)
+      this.jobsService.createJob(changes).subscribe({
+        next: (rows) => {
+          const created = rows[0];
+
+          // Add to jobsSummary using the new job_id from DB
+          const exists = this.jobsSummary.some((j) => j.id === created.id);
+          if (!exists) {
+            this.jobsSummary.push({
+              id: created.id,
+              job_code: created.job_code,
+              job_name: created.job_name,
+              vehicle_count: 0,
+              vehicle_Names: [],
+            });
+
+            this.jobsSummary = this.jobsSummary.sort((a, b) =>
+              (a.job_code || '').localeCompare(b.job_code || '')
+            );
+          }
+
+          this.closeJobModal();
+        },
+        error: (err) => {
+          console.error('Create job error', err);
+          alert('Failed to create job. Check console for details.');
+        },
+      });
+
+      // Runs SQL function on Supabase that can re-assign closest jobs since it was set to null
+
+      this.jobsService.triggerVehiclePositionsRefresh().subscribe({
+        next: () => {
+          this.loadVehicles(); // your existing function for refresh
+        },
+        error: (err) => {
+          console.error('Failed to refresh vehicle assignments', err);
+        },
+      });
+    }
+
+    // Rebuild page
+    this.loadVehicles();
+  }
+
+  // 🔹 Delete job (local only for now)
+  deleteJob(): void {
+    const jobId = this.jobForm.id;
+    if (!this.jobIsEditMode || !jobId) return;
+
+    if (!confirm('Delete this job and unassign all its vehicles? This cannot be undone.')) {
+      return;
+    }
+
+    // 1) Clear job assignment from vehicle_positions in DB
+    this.jobsService.clearJobFromVehiclePositions(jobId).subscribe({
+      next: () => {
+        // 2) Update local vehicles array to reflect job_id = null
+        this.vehicles = this.vehicles.map((v) => {
+          if (v.job_id === jobId) {
+            return {
+              ...v,
+              job_id: null,
+              job_code: 'UNASSIGNED',
+              job_name: 'No job assigned',
+            };
+          }
+          return v;
+        });
+
+        // 3) Now delete the job row itself
+        this.jobsService.deleteJob(jobId).subscribe({
+          next: () => {
+            this.jobsService.triggerVehiclePositionsRefresh().subscribe({
+              next: () => this.loadVehicles(),
+              error: (err) => console.error('Refresh failed', err),
+            });
+
+            this.jobsSummary = this.jobsSummary.filter((j) => j.id !== jobId);
+            this.closeJobModal();
+          },
+          error: (err) => {
+            console.error('Delete job error', err);
+            alert('Failed to delete job record from jobs table. Check console for details.');
+          },
+        });
+      },
+      error: (err) => {
+        console.error('Failed to clear job from vehicle_positions', err);
+        alert('Could not clear job assignment from vehicles. Job was not deleted.');
+      },
+    });
+
+    // Rebuild jobsSummary based on updated vehicles
+    this.buildJobsSummary();
   }
 
   private trueHaversineDistanceMeters(
@@ -457,5 +698,13 @@ export class LatestVehiclesComponent implements OnInit, OnDestroy, AfterViewInit
         this.editingTypeId = null;
       },
     });
+  }
+
+  private parseNumber(value: unknown): number | null {
+    if (value === null || value === undefined || value === '') {
+      return null;
+    }
+    const n = Number(value);
+    return Number.isFinite(n) ? n : null;
   }
 }
