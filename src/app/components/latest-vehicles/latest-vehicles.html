@@ -27,54 +27,58 @@
         >
           + Create Job
         </button>
+
+        <!-- Checkbox to show empty projects -->
+        <div class="flex items-center gap-2">
+          <input
+            type="checkbox"
+            [(ngModel)]="isCheckedShowEmptyProjects"
+            (ngModelChange)="onShowEmptyProjectsChange($event.target.checked)"
+          />
+          <label>Show Empty Projects </label>
+        </div>
       </h2>
-      <!-- 
-      
-      <button
-        class="px-2 py-1 text-xs rounded-md border border-slate-600 hover:bg-slate-800"
-        (click)="openCreateJobModal()"
-      >
-        + Create Job
-      </button> -->
 
       <div *ngIf="jobsSummary.length === 0" class="text-slate-400 text-sm">No vehicles yet.</div>
 
       <!-- Scrolling Wrapper -->
       <div class="max-h-[47rem] overflow-y-auto space-y-3 pr-1">
         <!-- Job Card -->
-        <div
-          *ngFor="let job of jobsSummary"
-          class="border border-slate-800 rounded-lg px-3 py-2 bg-slate-900/40"
-          [attr.title]="job.vehicle_Names.join('\n')"
-        >
-          <div class="flex items-center justify-between gap-3">
-            <!-- LEFT SIDE -->
-            <div class="min-w-0">
-              <div class="font-medium text-sm truncate">
-                {{ job.job_code }}
-              </div>
-              <div class="text-xs text-slate-400 truncate">
-                {{ job.job_name }}
-              </div>
-            </div>
-
-            <!-- RIGHT SIDE -->
-            <div class="flex items-center gap-3 shrink-0">
-              <!-- vehicle count -->
-              <div class="text-xs text-slate-300 text-right min-w-[5.5rem]">
-                {{ job.vehicle_count }} vehicle{{ job.vehicle_count === 1 ? '' : 's' }}
+        <ng-container *ngFor="let job of jobsSummary">
+          <div
+            *ngIf="job.vehicle_count > 0 || isCheckedShowEmptyProjects"
+            class="border border-slate-800 rounded-lg px-3 py-2 bg-slate-900/40"
+            [attr.title]="job.vehicle_Names.join('\n')"
+          >
+            <div class="flex items-center justify-between gap-3">
+              <!-- LEFT SIDE -->
+              <div class="min-w-0">
+                <div class="font-medium text-sm truncate">
+                  {{ job.job_code }}
+                </div>
+                <div class="text-xs text-slate-400 truncate">
+                  {{ job.job_name }}
+                </div>
               </div>
 
-              <!-- edit button -->
-              <button
-                class="px-2 py-1 text-[11px] rounded border border-slate-600 hover:bg-slate-800"
-                (click)="openEditJobModal(job)"
-              >
-                Edit
-              </button>
+              <!-- RIGHT SIDE -->
+              <div class="flex items-center gap-3 shrink-0">
+                <!-- vehicle count -->
+                <div class="text-xs text-slate-300 text-right min-w-[5.5rem]">
+                  {{ job.vehicle_count }} vehicle{{ job.vehicle_count === 1 ? '' : 's' }}
+                </div>
+
+                <!-- edit button -->
+                <button
+                  class="px-2 py-1 text-[11px] rounded border border-slate-600 hover:bg-slate-800"
+                  (click)="openEditJobModal(job)"
+                >
+                  Edit
+                </button>
+              </div>
             </div>
           </div>
-        </div>
+        </ng-container>
       </div>
     </div>
 

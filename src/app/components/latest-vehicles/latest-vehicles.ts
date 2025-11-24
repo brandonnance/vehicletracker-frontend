@@ -93,6 +93,7 @@ export class LatestVehiclesComponent implements OnInit, OnDestroy, AfterViewInit
   filterSearch: string = '';
   isCheckedCivil: boolean = true;
   isCheckedPipeline: boolean = true;
+  isCheckedShowEmptyProjects: boolean = true;
 
   constructor(
     private vehicleService: SupabaseVehicleService,
@@ -228,7 +229,12 @@ export class LatestVehiclesComponent implements OnInit, OnDestroy, AfterViewInit
         return this.compareJobSummaries(a, b);
       });
 
-      // 2) SECOND PASS — MERGE IN ALL JOBS FROM DATABASE (0-vehicle jobs)
+      console.log('Show empty projects running', this.isCheckedShowEmptyProjects);
+
+      // 2) SECOND PASS — MERGE IN ALL JOBS FROM DATABASE (0-vehicle jobs) if Show Empty Projects checked.
+      if (!this.isCheckedShowEmptyProjects) {
+        return;
+      }
 
       this.jobsService.getAllJobs().subscribe({
         next: (jobs) => {
@@ -464,6 +470,11 @@ export class LatestVehiclesComponent implements OnInit, OnDestroy, AfterViewInit
     }
 
     return rows;
+  }
+
+  onShowEmptyProjectsChange(checked: boolean): void {
+    this.isCheckedShowEmptyProjects = checked;
+    this.buildJobsSummary(); // rebuild list based on current vehicles + flag
   }
 
   toggleSort(column: SortColumn): void {
