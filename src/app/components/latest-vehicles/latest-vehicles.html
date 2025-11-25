@@ -21,15 +21,17 @@
       <h2 class="text-lg font-semibold mb-1">
         Per-Job Breakdown
         <!-- Create Job button -->
-        <button
-          class="px-2 py-1 text-xs rounded-md border border-slate-600 hover:bg-slate-800"
-          (click)="openCreateJobModal()"
-        >
-          + Create Job
-        </button>
-
-        <!-- Checkbox to show empty projects -->
         <div class="flex items-center gap-2">
+          <button
+            class="px-2 py-1 text-xs rounded-md border border-slate-600 hover:bg-slate-800"
+            (click)="openCreateJobModal()"
+          >
+            + Create Job
+          </button>
+          <span style="display: inline-block; width: 80px"></span>
+
+          <!-- Checkbox to show empty projects -->
+
           <input
             type="checkbox"
             [(ngModel)]="isCheckedShowEmptyProjects"
